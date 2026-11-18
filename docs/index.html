@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1f4e79">
+  <title>זיכוי חלקים</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header class="top">
+    <h1>זיכוי חלקים</h1>
+    <button id="modeChip" class="chip" type="button" aria-label="מצב עבודה">—</button>
+    <span id="syncStatus" class="sync" aria-live="polite"></span>
+    <button id="settingsBtn" class="icon-btn" type="button" aria-label="הגדרות">⚙</button>
+  </header>
+
+  <div id="setupBanner" class="banner" hidden>
+    לא מחובר לגיליון. <button type="button" class="link" id="openSettingsFromBanner">להגדרות ←</button>
+  </div>
+
+  <main>
+    <section class="card scan" aria-label="סריקה">
+      <div class="field" data-field="caseId">
+        <label for="f-caseId">Case ID</label>
+        <div class="row">
+          <input id="f-caseId" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="next" dir="ltr">
+          <button type="button" class="cam" data-cam="caseId" aria-label="סריקה במצלמה – Case ID">📷</button>
+        </div>
+      </div>
+      <div class="field" data-field="pn">
+        <label for="f-pn">Part Number</label>
+        <div class="row">
+          <input id="f-pn" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="next" dir="ltr">
+          <button type="button" class="cam" data-cam="pn" aria-label="סריקה במצלמה – Part Number">📷</button>
+        </div>
+      </div>
+      <div class="field" data-field="rma">
+        <label for="f-rma">RMA</label>
+        <div class="row">
+          <input id="f-rma" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="next" dir="ltr">
+          <button type="button" class="cam" data-cam="rma" aria-label="סריקה במצלמה – RMA">📷</button>
+        </div>
+      </div>
+      <div id="scanHint" class="hint" aria-live="polite"></div>
+      <div class="status-pick" id="statusPick">
+        <button type="button" class="st st-def" data-status="Defective">Defective<small>מקש 1</small></button>
+        <button type="button" class="st st-unu" data-status="Unused">Unused<small>מקש 2</small></button>
+      </div>
+      <button type="button" class="link clear" id="clearScan">נקה שדות</button>
+    </section>
+
+    <section class="card list" aria-label="רשימה">
+      <div class="list-head">
+        <div id="summary" class="summary">—</div>
+        <div id="dupNote" class="dup-note" hidden></div>
+      </div>
+      <ol id="items" class="items"></ol>
+      <p id="emptyList" class="empty">אין פריטים. סרוק חלק ראשון.</p>
+    </section>
+  </main>
+
+  <footer class="bottom">
+    <button type="button" id="historyBtn" class="btn ghost">היסטוריה</button>
+    <button type="button" id="previewBtn" class="btn ghost">תצוגה מקדימה</button>
+    <button type="button" id="sendBtn" class="btn primary">שלח משלוח</button>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- עריכת פריט -->
+  <dialog id="editDlg">
+    <form method="dialog" class="dlg">
+      <h2>עריכת פריט <span id="editNo"></span></h2>
+      <label>Case ID <input id="e-caseId" dir="ltr" autocomplete="off" spellcheck="false"></label>
+      <label>Part Number <input id="e-pn" dir="ltr" autocomplete="off" spellcheck="false"></label>
+      <label>RMA <input id="e-rma" dir="ltr" autocomplete="off" spellcheck="false"></label>
+      <div class="seg" role="radiogroup" aria-label="מצב">
+        <label><input type="radio" name="e-status" value="Defective"> Defective</label>
+        <label><input type="radio" name="e-status" value="Unused"> Unused</label>
+      </div>
+      <div id="editErr" class="err"></div>
+      <div class="dlg-actions">
+        <button type="button" id="editDelete" class="btn danger">מחק</button>
+        <span class="spacer"></span>
+        <button value="cancel" class="btn ghost">ביטול</button>
+        <button type="button" id="editSave" class="btn primary">שמור</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- שליחה דו-שלבית -->
+  <dialog id="sendDlg">
+    <div class="dlg">
+      <h2 id="sendTitle">שליחת משלוח</h2>
+      <div id="sendBody"></div>
+      <div class="dlg-actions" id="sendActions"></div>
+    </div>
+  </dialog>
+
+  <!-- מצב עבודה -->
+  <dialog id="modeDlg">
+    <form method="dialog" class="dlg">
+      <h2>מצב עבודה</h2>
+      <p class="muted">החלפת מצב מבטלת שליחה פתוחה. הרשימה עצמה לא משתנה.</p>
+      <div class="mode-opts">
+        <button type="button" class="btn mode-test" data-mode="בדיקה">בדיקה<small id="toTest"></small></button>
+        <button type="button" class="btn mode-prod" data-mode="אמיתי">אמיתי<small>נשלח למחסן ולטלדור</small></button>
+      </div>
+      <div id="modeErr" class="err"></div>
+      <div class="dlg-actions"><span class="spacer"></span><button value="cancel" class="btn ghost">סגור</button></div>
+    </form>
+  </dialog>
+
+  <!-- הגדרות -->
+  <dialog id="settingsDlg">
+    <form method="dialog" class="dlg">
+      <h2>הגדרות</h2>
+      <label>כתובת ה-Web App של Apps Script
+        <input id="s-url" dir="ltr" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false">
+      </label>
+      <label>מפתח גישה
+        <input id="s-key" dir="ltr" type="password" autocomplete="off" spellcheck="false">
+      </label>
+      <p class="muted">נשמר רק בטלפון הזה. להדגמה בלי חיבור: כתובת <code>demo</code>.</p>
+      <label class="seg" id="demoOfflineRow" hidden><input type="checkbox" id="demoOffline"> הדמיית אין קליטה (הדגמה בלבד)</label>
+      <div id="settingsMsg" class="err"></div>
+      <div class="dlg-actions">
+        <button type="button" id="settingsTest" class="btn ghost">בדוק חיבור</button>
+        <span class="spacer"></span>
+        <button value="cancel" class="btn ghost">ביטול</button>
+        <button type="button" id="settingsSave" class="btn primary">שמור</button>
+      </div>
+      <p class="muted small" id="versionLine"></p>
+    </form>
+  </dialog>
+
+  <!-- היסטוריה -->
+  <dialog id="historyDlg">
+    <form method="dialog" class="dlg">
+      <h2>היסטוריית משלוחים <span id="histMode" class="muted"></span></h2>
+      <div id="histBody">טוען…</div>
+      <div class="dlg-actions"><span class="spacer"></span><button value="cancel" class="btn ghost">סגור</button></div>
+    </form>
+  </dialog>
+
+  <!-- PDF -->
+  <dialog id="pdfDlg">
+    <form method="dialog" class="dlg">
+      <h2 id="pdfTitle">PDF</h2>
+      <p id="pdfName" class="muted small" dir="auto"></p>
+      <div class="dlg-actions">
+        <a id="pdfOpen" class="btn primary" target="_blank" rel="noopener">פתח</a>
+        <button type="button" id="pdfShare" class="btn ghost">שתף…</button>
+        <span class="spacer"></span>
+        <button value="cancel" class="btn ghost">סגור</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- מצלמה -->
+  <dialog id="camDlg" class="cam-dlg">
+    <div class="dlg">
+      <h2 id="camTitle">סריקה במצלמה</h2>
+      <div class="cam-view"><video id="camVideo" playsinline muted></video><div class="cam-frame"></div></div>
+      <div id="camMsg" class="muted"></div>
+      <div class="dlg-actions"><span class="spacer"></span><button type="button" id="camClose" class="btn ghost">ביטול</button></div>
+    </div>
+  </dialog>
+
+  <script src="scanner.js"></script>
+  <script src="demo.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
