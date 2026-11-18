@@ -5,7 +5,7 @@
  * שליחה: רק אחרי סנכרון מלא, בשני שלבים (ספירה → אישור), והשרת בודק שהרשימה לא השתנתה.
  */
 
-const VERSION = '1.0.0';
+const VERSION = '1.0.2';
 const LS = 'zikui.v1.';
 const FIELDS = ['caseId', 'pn', 'rma'];
 const LABELS = { caseId: 'Case ID', pn: 'Part Number', rma: 'RMA' };
@@ -688,16 +688,37 @@ function openSettings() {
   $('#versionLine').textContent = 'גרסה ' + VERSION;
   $('#demoOfflineRow').hidden = S.cfg.url !== 'demo';
   $('#demoOffline').checked = Demo.offline;
+  keyNote();
   $('#settingsDlg').showModal();
 }
 
+/** מחלץ את המפתח (64 תווים הקסה) גם אם הודבקה כל שורת היומן או נוספו רווחים/שבירת שורה */
+function extractKey(v) {
+  const s = String(v || '').replace(/\s+/g, '');
+  const m = s.match(/[0-9a-f]{64}/i);
+  return m ? m[0].toLowerCase() : s;
+}
+
+function keyNote() {
+  const raw = $('#s-key').value;
+  const k = extractKey(raw);
+  const n = $('#keyNote');
+  if (!raw.trim() || $('#s-url').value.trim() === 'demo') { n.textContent = ''; return; }
+  n.textContent = /^[0-9a-f]{64}$/.test(k)
+    ? `✓ מפתח תקין (64 תווים, מתחיל ב-${k.slice(0, 4)}…${k.slice(-4)})`
+    : `✕ המפתח צריך להיות 64 תווים (0-9, a-f). זוהו ${k.length} תווים – ייתכן שהועתק רק חלק.`;
+  n.style.color = /^[0-9a-f]{64}$/.test(k) ? 'var(--ok)' : 'var(--err)';
+}
+
 function readSettings() {
-  return { url: $('#s-url').value.trim(), key: $('#s-key').value.trim() };
+  return { url: $('#s-url').value.trim(), key: extractKey($('#s-key').value) };
 }
 
 function bindSettings() {
   $('#settingsBtn').addEventListener('click', openSettings);
-  $('#s-url').addEventListener('input', () => { $('#demoOfflineRow').hidden = $('#s-url').value.trim() !== 'demo'; });
+  $('#s-url').addEventListener('input', () => { $('#demoOfflineRow').hidden = $('#s-url').value.trim() !== 'demo'; keyNote(); });
+  $('#s-key').addEventListener('input', keyNote);
+  $('#showKey').addEventListener('change', e => { $('#s-key').type = e.target.checked ? 'text' : 'password'; });
   $('#demoOffline').addEventListener('change', e => { Demo.setOffline(e.target.checked); if (!e.target.checked) sync(); else { S.net = 'offline'; renderNet(); } });
   $('#openSettingsFromBanner').addEventListener('click', openSettings);
   $('#settingsTest').addEventListener('click', async () => {

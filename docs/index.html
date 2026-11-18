@@ -123,8 +123,10 @@
         <input id="s-url" dir="ltr" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false">
       </label>
       <label>מפתח גישה
-        <input id="s-key" dir="ltr" type="password" autocomplete="off" spellcheck="false">
+        <input id="s-key" dir="ltr" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
       </label>
+      <div id="keyNote" class="small"></div>
+      <label class="seg"><input type="checkbox" id="showKey"> הצג מפתח</label>
       <p class="muted">נשמר רק בטלפון הזה. להדגמה בלי חיבור: כתובת <code>demo</code>.</p>
       <label class="seg" id="demoOfflineRow" hidden><input type="checkbox" id="demoOffline"> הדמיית אין קליטה (הדגמה בלבד)</label>
       <div id="settingsMsg" class="err"></div>

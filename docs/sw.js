@@ -1,5 +1,5 @@
 /* Service Worker – האפליקציה נפתחת גם בלי קליטה. קריאות ל-Apps Script לא עוברות כאן (POST לדומיין אחר). */
-const CACHE = 'zikui-v1.0.0';
+const CACHE = 'zikui-v1.0.2';
 const SHELL = [
   './', 'index.html', 'app.css', 'app.js', 'scanner.js', 'demo.js',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
@@ -17,12 +17,23 @@ self.addEventListener('activate', e => {
 });
 
 // stale-while-revalidate: מגיש מהמטמון מיד, ומעדכן ברקע לפעם הבאה
+// רשת קודם (כדי שעדכונים יגיעו מיד), ואם אין תשובה תוך 3 שניות או אין קליטה – מהמטמון
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   e.respondWith(caches.open(CACHE).then(async cache => {
-    const hit = await cache.match(req, { ignoreSearch: true });
-    const net = fetch(req).then(res => { if (res.ok) cache.put(req, res.clone()); return res; }).catch(() => null);
-    return hit || (await net) || (req.mode === 'navigate' ? cache.match('index.html') : Response.error());
+    const fromCache = async () =>
+      (await cache.match(req, { ignoreSearch: true })) ||
+      (req.mode === 'navigate' ? await cache.match('index.html') : null);
+    const net = fetch(req, { cache: 'no-cache' })
+      .then(res => { if (res.ok) cache.put(req, res.clone()); return res; });
+    const timeout = new Promise(r => setTimeout(r, 3000, null));
+    try {
+      const res = await Promise.race([net, timeout]);
+      if (res) return res;
+      return (await fromCache()) || (await net);
+    } catch (_) {
+      return (await fromCache()) || Response.error();
+    }
   }));
 });
